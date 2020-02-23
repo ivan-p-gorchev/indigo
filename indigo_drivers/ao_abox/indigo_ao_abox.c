@@ -54,22 +54,9 @@ typedef struct {
 } abox_private_data;
 
 
-
-
-
-//Copy of AO SX driver for refference
-/*
-#define PRIVATE_DATA        ((sx_private_data *)device->private_data)
-
-typedef struct {
-	int handle;
-	int device_count;
-	pthread_mutex_t mutex;
-} sx_private_data;
-
 // -------------------------------------------------------------------------------- Low level communication routines
 
-static bool sx_flush(indigo_device *device) {
+static bool abox_flush(indigo_device *device) {
 	char c;
 	struct timeval tv;
 	while (true) {
@@ -91,15 +78,22 @@ static bool sx_flush(indigo_device *device) {
 	}
 }
 
-static bool sx_command(indigo_device *device, char *command, char *response, int max) {
+
+static bool abox_command(indigo_device *device, char *command, int *response) {
 	char c;
 	struct timeval tv;
+
+	// Send command to device
 	indigo_write(PRIVATE_DATA->handle, command, strlen(command));
-	if (response != NULL) {
+
+	// Only GET_POSITION and GET_ERRORS will return response. All other commands does not provide response
+	if (((GET_POSITION == command[0]) || (GET_ERRORS == command[0])) && (response != NULL)) {
 		int index = 0;
-		int timeout = *command == 'K' || *command == 'R' ? 15 : 1;
+		int timeout = 1;									//
+		unsigned char ch_response[RESPONSE_SIZE];
 		*response = 0;
-		while (index < max) {
+
+		while (index < RESPONSE_SIZE) {
 			fd_set readout;
 			FD_ZERO(&readout);
 			FD_SET(PRIVATE_DATA->handle, &readout);
@@ -113,21 +107,33 @@ static bool sx_command(indigo_device *device, char *command, char *response, int
 				INDIGO_DRIVER_ERROR(DRIVER_NAME, "Failed to read from %s -> %s (%d)", DEVICE_PORT_ITEM->text.value, strerror(errno), errno);
 				return false;
 			}
-			response[index++] = c;
+			ch_response[index++] = c;
 		}
-		response[index] = 0;
+
+		if (index != RESPONSE_SIZE){
+			INDIGO_DRIVER_ERROR(DRIVER_NAME, "Failed to read from %s -> %s (%d)", DEVICE_PORT_ITEM->text.value, strerror(errno), errno);
+			return false;
+		} else {
+			// Regarding Compact Protocol, data is send in Little-endian format
+			*response = ch_response[0] + 256*ch_response[1];
+		}
 	}
 	INDIGO_DRIVER_DEBUG(DRIVER_NAME, "Command %s -> %s", command, response != NULL ? response : "NULL");
 	return true;
 }
 
-static bool sx_open(indigo_device *device) {
+static bool abox_open(indigo_device *device) {
 	if (PRIVATE_DATA->device_count++ > 0)
 		return true;
 	char *name = DEVICE_PORT_ITEM->text.value;
+	// ToDo: Shall we use indigo_open_serial in case ttyACM device is used in Linux?
+	// Regarding Polulo documents, for Windows and MAC OS different devices shall be used.
+	// Should this driver be platform independent?
 	PRIVATE_DATA->handle = indigo_open_serial(name);
 	if (PRIVATE_DATA->handle >= 0) {
 		char response[5];
+		// ToDo: abox does not support any kind of handshake on connect.
+		// We can use read errors command to check if any errors detected.
 		if (sx_flush(device)) {
 			if (sx_command(device, "X", response, 1) && *response == 'Y') {
 				if (sx_command(device, "V", response, 4) && *response == 'V') {
@@ -144,7 +150,7 @@ static bool sx_open(indigo_device *device) {
 	return false;
 }
 
-static void sx_close(indigo_device *device) {
+static void abox_close(indigo_device *device) {
 	if (--PRIVATE_DATA->device_count > 0)
 		return;
 	if (PRIVATE_DATA->handle > 0) {
@@ -157,12 +163,13 @@ static void sx_close(indigo_device *device) {
 
 // -------------------------------------------------------------------------------- INDIGO AO device implementation
 
-static indigo_result ao_attach(indigo_device *device) {
+static indigo_result abox_attach(indigo_device *device) {
 	assert(device != NULL);
 	assert(PRIVATE_DATA != NULL);
 	if (indigo_ao_attach(device, DRIVER_VERSION) == INDIGO_OK) {
 		DEVICE_PORT_PROPERTY->hidden = false;
 		DEVICE_PORTS_PROPERTY->hidden = false;
+		// ToDo: Should we place here limits for motors in each direction?
 		AO_GUIDE_NORTH_ITEM->number.max = AO_GUIDE_SOUTH_ITEM->number.max = AO_GUIDE_EAST_ITEM->number.max = AO_GUIDE_WEST_ITEM->number.max = 50;
 		pthread_mutex_init(&PRIVATE_DATA->mutex, NULL);
 		INDIGO_DEVICE_ATTACH_LOG(DRIVER_NAME, device->name);
@@ -171,14 +178,15 @@ static indigo_result ao_attach(indigo_device *device) {
 	return INDIGO_FAILED;
 }
 
-static void ao_connection_handler(indigo_device *device) {
+static void abox_connection_handler(indigo_device *device) {
 	pthread_mutex_lock(&PRIVATE_DATA->mutex);
 	if (CONNECTION_CONNECTED_ITEM->sw.value) {
 		CONNECTION_PROPERTY->state = INDIGO_BUSY_STATE;
 		indigo_update_property(device, CONNECTION_PROPERTY, NULL);
-		if (sx_open(device)) {
+		if (abox_open(device)) {
+			// ToDo: What shall be done here?
 			char response[2];
-			if (sx_command(device, "L", response, 1)) {
+			if (abox_command(device, "L", response, 1)) {
 				AO_GUIDE_DEC_PROPERTY->state = INDIGO_OK_STATE;
 				AO_GUIDE_RA_PROPERTY->state = INDIGO_OK_STATE;
 				if (response[0] & 0x05)
@@ -192,28 +200,26 @@ static void ao_connection_handler(indigo_device *device) {
 			indigo_set_switch(CONNECTION_PROPERTY, CONNECTION_DISCONNECTED_ITEM, true);
 		}
 	} else {
-		sx_close(device);
+		abox_close(device);
 		CONNECTION_PROPERTY->state = INDIGO_OK_STATE;
 	}
 	indigo_ao_change_property(device, NULL, CONNECTION_PROPERTY);
 	pthread_mutex_unlock(&PRIVATE_DATA->mutex);
 }
 
-static void ao_guide_dec_handler(indigo_device *device) {
-	char response[2], command[16];
-	pthread_mutex_lock(&PRIVATE_DATA->mutex);
-	if (AO_GUIDE_NORTH_ITEM->number.value > 0) {
-		sprintf(command, "GN%05d", (int)AO_GUIDE_NORTH_ITEM->number.value);
-		sx_command(device, command, response, 1);
-	} else if (AO_GUIDE_SOUTH_ITEM->number.value > 0) {
-		sprintf(command, "GS%05d", (int)AO_GUIDE_SOUTH_ITEM->number.value);
-		sx_command(device, command, response, 1);
-	}
-	AO_GUIDE_NORTH_ITEM->number.value = AO_GUIDE_SOUTH_ITEM->number.value = 0;
-	AO_GUIDE_DEC_PROPERTY->state = *response == 'G' ? INDIGO_OK_STATE : INDIGO_ALERT_STATE;
-	indigo_update_property(device, AO_GUIDE_DEC_PROPERTY, NULL);
-	pthread_mutex_unlock(&PRIVATE_DATA->mutex);
-}
+
+
+
+
+
+//Copy of AO SX driver for refference
+/*
+
+
+// -------------------------------------------------------------------------------- INDIGO AO device implementation
+
+
+
 
 static void ao_guide_ra_handler(indigo_device *device) {
 	char response[2], command[16];
