@@ -1,4 +1,4 @@
-// Copyright (c) 2020 CloudMakers, s. r. o.
+// Copyright (c) 2020 Ivan P. Gorchev
 // All rights reserved.
 //
 // You can use this software under the terms of 'INDIGO Astronomy
@@ -17,7 +17,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // version history
-// 1.0 by Ivan Gorchev <ivan.gorchev@gmail.com>
+// 1.0 by Ivan P. Gorchev
 
 /** INDIGO Acquisition box AO driver
  \file indigo_ao_sx.h

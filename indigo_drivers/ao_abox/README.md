@@ -2,7 +2,7 @@
 
 ## Supported devices
 
-Acquisition box version 3.0 USB.
+Acquisition box version 3.0, USB.
 
 Single device is present on startup (no hot-plug support).
 
@@ -23,4 +23,4 @@ INDIGO Astronomy open-source license.
 ## Status: In Work
 
 Driver is developed and tested with:
-* Acquisition box version 3.0 USB.
+* Acquisition box version 3.0, USB.
