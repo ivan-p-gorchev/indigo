@@ -86,7 +86,7 @@ static bool abox_command(indigo_device *device, char *command, int *response) {
 	// Send command to device
 	indigo_write(PRIVATE_DATA->handle, command, strlen(command));
 
-	// Only GET_POSITION and GET_ERRORS will return response. All other commands does not provide response
+	// Only GET_POSITION and GET_ERRORS command will return response. All other commands does not provide response
 	if (((GET_POSITION == command[0]) || (GET_ERRORS == command[0])) && (response != NULL)) {
 		int index = 0;
 		int timeout = 1;									//
@@ -134,6 +134,7 @@ static bool abox_open(indigo_device *device) {
 		char response[5];
 		// ToDo: abox does not support any kind of handshake on connect.
 		// We can use read errors command to check if any errors detected.
+		/*
 		if (sx_flush(device)) {
 			if (sx_command(device, "X", response, 1) && *response == 'Y') {
 				if (sx_command(device, "V", response, 4) && *response == 'V') {
@@ -141,7 +142,7 @@ static bool abox_open(indigo_device *device) {
 					return true;
 				}
 			}
-		}
+		}*/
 		INDIGO_DRIVER_ERROR(DRIVER_NAME, "Handshake failed on %s", name);
 	} else {
 		INDIGO_DRIVER_ERROR(DRIVER_NAME, "Failed to connect to %s", name);
@@ -169,7 +170,8 @@ static indigo_result abox_attach(indigo_device *device) {
 	if (indigo_ao_attach(device, DRIVER_VERSION) == INDIGO_OK) {
 		DEVICE_PORT_PROPERTY->hidden = false;
 		DEVICE_PORTS_PROPERTY->hidden = false;
-		// ToDo: Should we place here limits for motors in each direction?
+		// ToDo: Limits shall be fulfilled here
+		// If they can not be read from device, shall be hardcoded
 		AO_GUIDE_NORTH_ITEM->number.max = AO_GUIDE_SOUTH_ITEM->number.max = AO_GUIDE_EAST_ITEM->number.max = AO_GUIDE_WEST_ITEM->number.max = 50;
 		pthread_mutex_init(&PRIVATE_DATA->mutex, NULL);
 		INDIGO_DEVICE_ATTACH_LOG(DRIVER_NAME, device->name);
@@ -184,7 +186,9 @@ static void abox_connection_handler(indigo_device *device) {
 		CONNECTION_PROPERTY->state = INDIGO_BUSY_STATE;
 		indigo_update_property(device, CONNECTION_PROPERTY, NULL);
 		if (abox_open(device)) {
-			// ToDo: What shall be done here?
+			// ToDo: We should add here initial state, if we can read it from device
+			// If initial state can not be read, we shall initialize optics to defined state
+			/*
 			char response[2];
 			if (abox_command(device, "L", response, 1)) {
 				AO_GUIDE_DEC_PROPERTY->state = INDIGO_OK_STATE;
@@ -193,7 +197,7 @@ static void abox_connection_handler(indigo_device *device) {
 					AO_GUIDE_DEC_PROPERTY->state = INDIGO_ALERT_STATE;
 				if (response[0] & 0x0A)
 					AO_GUIDE_RA_PROPERTY->state = INDIGO_ALERT_STATE;
-			}
+			}*/
 			CONNECTION_PROPERTY->state = INDIGO_OK_STATE;
 		} else {
 			CONNECTION_PROPERTY->state = INDIGO_ALERT_STATE;
@@ -208,31 +212,21 @@ static void abox_connection_handler(indigo_device *device) {
 }
 
 
-
-
-
-
-//Copy of AO SX driver for refference
-/*
-
-
-// -------------------------------------------------------------------------------- INDIGO AO device implementation
-
-
-
-
 static void ao_guide_ra_handler(indigo_device *device) {
 	char response[2], command[16];
 	pthread_mutex_lock(&PRIVATE_DATA->mutex);
 	if (AO_GUIDE_WEST_ITEM->number.value > 0) {
-		sprintf(command, "GW%05d", (int)AO_GUIDE_WEST_ITEM->number.value);
-		sx_command(device, command, response, 1);
+		//ToDo: Device specific. Movement shall be defined based on mechanical construction.
+		//sprintf(command, "GW%05d", (int)AO_GUIDE_WEST_ITEM->number.value);
+		//sx_command(device, command, response, 1);
 	} else if (AO_GUIDE_EAST_ITEM->number.value > 0) {
-		sprintf(command, "GT%05d", (int)AO_GUIDE_EAST_ITEM->number.value);
-		sx_command(device, command, response, 1);
+		//ToDo: Device specific. Movement shall be defined based on mechanical construction.
+		//sprintf(command, "GT%05d", (int)AO_GUIDE_EAST_ITEM->number.value);
+		//sx_command(device, command, response, 1);
 	}
 	AO_GUIDE_WEST_ITEM->number.value = AO_GUIDE_EAST_ITEM->number.value = 0;
-	AO_GUIDE_RA_PROPERTY->state = *response == 'G' ? INDIGO_OK_STATE : INDIGO_ALERT_STATE;
+	//ToDo: Original protocol does not provide any response. We can call get position to get information about status
+	//AO_GUIDE_RA_PROPERTY->state = *response == 'G' ? INDIGO_OK_STATE : INDIGO_ALERT_STATE;
 	indigo_update_property(device, AO_GUIDE_RA_PROPERTY, NULL);
 	pthread_mutex_unlock(&PRIVATE_DATA->mutex);
 }
@@ -241,20 +235,20 @@ static void ao_reset_handler(indigo_device *device) {
 	char response[2] = { 0 };
 	pthread_mutex_lock(&PRIVATE_DATA->mutex);
 	if (AO_CENTER_ITEM->sw.value) {
-		sx_command(device, "K", response, 1);
+		//sx_command(device, "K", response, 1);
 		AO_GUIDE_DEC_PROPERTY->state = INDIGO_OK_STATE;
 		indigo_update_property(device, AO_GUIDE_DEC_PROPERTY, NULL);
 		AO_GUIDE_RA_PROPERTY->state = INDIGO_OK_STATE;
 		indigo_update_property(device, AO_GUIDE_RA_PROPERTY, NULL);
 	} else if (AO_UNJAM_ITEM->sw.value) {
-		sx_command(device, "R", response, 1);
+		//sx_command(device, "R", response, 1);
 		AO_GUIDE_DEC_PROPERTY->state = INDIGO_OK_STATE;
 		indigo_update_property(device, AO_GUIDE_DEC_PROPERTY, NULL);
 		AO_GUIDE_RA_PROPERTY->state = INDIGO_OK_STATE;
 		indigo_update_property(device, AO_GUIDE_RA_PROPERTY, NULL);
 	}
 	AO_CENTER_ITEM->sw.value = AO_UNJAM_ITEM->sw.value = false;
-	AO_RESET_PROPERTY->state = *response == 'K' ? INDIGO_OK_STATE : INDIGO_ALERT_STATE;
+	//AO_RESET_PROPERTY->state = *response == 'K' ? INDIGO_OK_STATE : INDIGO_ALERT_STATE;
 	indigo_update_property(device, AO_RESET_PROPERTY, NULL);
 	pthread_mutex_unlock(&PRIVATE_DATA->mutex);
 }
@@ -314,56 +308,64 @@ static indigo_result guider_attach(indigo_device *device) {
 	return INDIGO_FAILED;
 }
 
+
 static void guider_connection_handler(indigo_device *device) {
 	pthread_mutex_lock(&PRIVATE_DATA->mutex);
 	if (CONNECTION_CONNECTED_ITEM->sw.value) {
 		CONNECTION_PROPERTY->state = INDIGO_BUSY_STATE;
 		indigo_update_property(device, CONNECTION_PROPERTY, NULL);
-		if (sx_open(device)) {
+		if (abox_open(device)) {
 			CONNECTION_PROPERTY->state = INDIGO_OK_STATE;
 		} else {
 			CONNECTION_PROPERTY->state = INDIGO_ALERT_STATE;
 			indigo_set_switch(CONNECTION_PROPERTY, CONNECTION_DISCONNECTED_ITEM, true);
 		}
 	} else {
-		sx_close(device);
+		abox_close(device);
 		CONNECTION_PROPERTY->state = INDIGO_OK_STATE;
 	}
 	indigo_guider_change_property(device, NULL, CONNECTION_PROPERTY);
 	pthread_mutex_unlock(&PRIVATE_DATA->mutex);
 }
 
+
 static void guider_guide_dec_handler(indigo_device *device) {
 	char response[2], command[16];
 	pthread_mutex_lock(&PRIVATE_DATA->mutex);
 	if (GUIDER_GUIDE_NORTH_ITEM->number.value > 0) {
-		sprintf(command, "MN%05d", (int)GUIDER_GUIDE_NORTH_ITEM->number.value / 10);
-		sx_command(device, command, response, 1);
+		//ToDo: Device specific. Movement shall be defined based on mechanical construction.
+		//sprintf(command, "MN%05d", (int)GUIDER_GUIDE_NORTH_ITEM->number.value / 10);
+		//sx_command(device, command, response, 1);
 	} else if (GUIDER_GUIDE_SOUTH_ITEM->number.value > 0) {
-		sprintf(command, "MS%05d", (int)GUIDER_GUIDE_SOUTH_ITEM->number.value / 10);
-		sx_command(device, command, response, 1);
+		//ToDo: Device specific. Movement shall be defined based on mechanical construction.
+		//sprintf(command, "MS%05d", (int)GUIDER_GUIDE_SOUTH_ITEM->number.value / 10);
+		//sx_command(device, command, response, 1);
 	}
 	GUIDER_GUIDE_NORTH_ITEM->number.value = GUIDER_GUIDE_SOUTH_ITEM->number.value = 0;
-	GUIDER_GUIDE_DEC_PROPERTY->state = *response == 'M' ? INDIGO_OK_STATE : INDIGO_ALERT_STATE;
+	//GUIDER_GUIDE_DEC_PROPERTY->state = *response == 'M' ? INDIGO_OK_STATE : INDIGO_ALERT_STATE;
 	indigo_update_property(device, GUIDER_GUIDE_DEC_PROPERTY, NULL);
 	pthread_mutex_unlock(&PRIVATE_DATA->mutex);
 }
+
 
 static void guider_guide_ra_handler(indigo_device *device) {
 	char response[2], command[16];
 	pthread_mutex_lock(&PRIVATE_DATA->mutex);
 	if (GUIDER_GUIDE_WEST_ITEM->number.value > 0) {
-		sprintf(command, "MW%05d", (int)GUIDER_GUIDE_WEST_ITEM->number.value / 10);
-		sx_command(device, command, response, 1);
+		//ToDo: Device specific. Movement shall be defined based on mechanical construction.
+		//sprintf(command, "MW%05d", (int)GUIDER_GUIDE_WEST_ITEM->number.value / 10);
+		//sx_command(device, command, response, 1);
 	} else if (GUIDER_GUIDE_EAST_ITEM->number.value > 0) {
-		sprintf(command, "MT%05d", (int)GUIDER_GUIDE_EAST_ITEM->number.value / 10);
-		sx_command(device, command, response, 1);
+		//ToDo: Device specific. Movement shall be defined based on mechanical construction.
+		//sprintf(command, "MT%05d", (int)GUIDER_GUIDE_EAST_ITEM->number.value / 10);
+		//sx_command(device, command, response, 1);
 	}
 	GUIDER_GUIDE_WEST_ITEM->number.value = GUIDER_GUIDE_EAST_ITEM->number.value = 0;
-	GUIDER_GUIDE_RA_PROPERTY->state = *response == 'M' ? INDIGO_OK_STATE : INDIGO_ALERT_STATE;
+	//GUIDER_GUIDE_RA_PROPERTY->state = *response == 'M' ? INDIGO_OK_STATE : INDIGO_ALERT_STATE;
 	indigo_update_property(device, GUIDER_GUIDE_RA_PROPERTY, NULL);
 	pthread_mutex_unlock(&PRIVATE_DATA->mutex);
 }
+
 
 static indigo_result guider_change_property(indigo_device *device, indigo_client *client, indigo_property *property) {
 	assert(device != NULL);
@@ -399,15 +401,16 @@ static indigo_result guider_detach(indigo_device *device) {
 	return indigo_guider_detach(device);
 }
 
+
 // -------------------------------------------------------------------------------- INDIGO driver implementation
 
-static sx_private_data *private_data = NULL;
+static abox_private_data *private_data = NULL;
 static indigo_device *ao = NULL;
 static indigo_device *guider = NULL;
 
-indigo_result indigo_ao_sx(indigo_driver_action action, indigo_driver_info *info) {
+indigo_result indigo_ao_abox(indigo_driver_action action, indigo_driver_info *info) {
 	static indigo_device ao_template = INDIGO_DEVICE_INITIALIZER(
-		"SX AO",
+		"ABox AO",
 		ao_attach,
 		indigo_ao_enumerate_properties,
 		ao_change_property,
@@ -416,7 +419,7 @@ indigo_result indigo_ao_sx(indigo_driver_action action, indigo_driver_info *info
 	);
 
 	static indigo_device guider_template = INDIGO_DEVICE_INITIALIZER(
-		"SX AO (guider)",
+		"ABox AO (guider)",
 		guider_attach,
 		indigo_guider_enumerate_properties,
 		guider_change_property,
@@ -426,7 +429,7 @@ indigo_result indigo_ao_sx(indigo_driver_action action, indigo_driver_info *info
 
 	static indigo_driver_action last_action = INDIGO_DRIVER_SHUTDOWN;
 
-	SET_DRIVER_INFO(info, "StarlightXpress AO", __FUNCTION__, DRIVER_VERSION, false, last_action);
+	SET_DRIVER_INFO(info, "Acquisition box AO", __FUNCTION__, DRIVER_VERSION, false, last_action);
 
 	if (action == last_action)
 		return INDIGO_OK;
@@ -434,9 +437,9 @@ indigo_result indigo_ao_sx(indigo_driver_action action, indigo_driver_info *info
 	switch (action) {
 		case INDIGO_DRIVER_INIT:
 			last_action = action;
-			private_data = malloc(sizeof(sx_private_data));
+			private_data = malloc(sizeof(abox_private_data));
 			assert(private_data != NULL);
-			memset(private_data, 0, sizeof(sx_private_data));
+			memset(private_data, 0, sizeof(abox_private_data));
 			ao = malloc(sizeof(indigo_device));
 			assert(ao != NULL);
 			memcpy(ao, &ao_template, sizeof(indigo_device));
@@ -473,4 +476,3 @@ indigo_result indigo_ao_sx(indigo_driver_action action, indigo_driver_info *info
 
 	return INDIGO_OK;
 }
-*/
