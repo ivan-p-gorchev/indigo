@@ -369,11 +369,11 @@ void ptp_dump_container(int line, const char *function, indigo_device *device, p
 		}
 		sprintf(buffer + offset, "]");
 	}
-	indigo_debug("%s[%d, %s]: %s", DRIVER_NAME, line, function,  buffer);
+	indigo_debug("%s[%s:%d]: %s", DRIVER_NAME, function, line,  buffer);
 }
 
 void ptp_dump_device_info(int line, const char *function, indigo_device *device) {
-	indigo_log("%s[%d, %s]: device info", DRIVER_NAME, line, function);
+	indigo_log("%s[%s:%d]: device info", DRIVER_NAME, function, line);
 	indigo_log("PTP %.2f + %s (%04x), %s %.2f", PRIVATE_DATA->info_standard_version / 100.0, ptp_vendor_label(PRIVATE_DATA->info_vendor_extension_id), PRIVATE_DATA->info_vendor_extension_id, PRIVATE_DATA->info_vendor_extension_desc, PRIVATE_DATA->info_vendor_extension_version / 100.0);
 	indigo_log("%s [%s], %s, #%s", PRIVATE_DATA->info_model, PRIVATE_DATA->info_device_version, PRIVATE_DATA->info_manufacturer, PRIVATE_DATA->info_serial_number);
 	indigo_log("operations:");
@@ -1224,7 +1224,7 @@ bool ptp_handle_event(indigo_device *device, ptp_event_code code, uint32_t *para
 				free(buffer);
 		}
 		default:
-			INDIGO_DRIVER_DEBUG(DRIVER_NAME, "%s (%04x): +%d skipped", PRIVATE_DATA->event_code_label(code), code);
+			INDIGO_DRIVER_DEBUG(DRIVER_NAME, "%s (%04x)", PRIVATE_DATA->event_code_label(code), code);
 			return false;
 	}
 }
