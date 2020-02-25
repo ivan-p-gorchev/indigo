@@ -36,7 +36,7 @@ int maestroGetErrors(int fd)
     perror("error reading");
     return -1;
   }
-  return response[0] + 128*response[1];
+  return response[0] + 256*response[1];
 }
 
 // Gets the position of a Maestro channel.
@@ -98,6 +98,49 @@ int maestroGoHome(int fd)
   return 0;
 }
 
+int abox_update_position(int fd, servo_state_t* servo_state)
+{
+    servo_state->current_position_top_center = maestroGetPosition(fd, TOP_CENTER_SERVO);
+    servo_state->current_position_bottom_right = maestroGetPosition(fd, BOTTOM_RIGHT_SERVO);
+    servo_state->current_position_bottom_left = maestroGetPosition(fd, BOTTOM_LEFT_SERVO);
+    
+    printf("Device initialized. Current positions:\n");
+    printf("%6.2f\n", (float)servo_state->current_position_top_center/4);
+    printf("%6.2f\n", (float)servo_state->current_position_bottom_right/4);
+    printf("%6.2f\n", (float)servo_state->current_position_bottom_left/4);
+}
+
+
+int abox_init(int fd, servo_state_t* servo_state)
+{
+    int errors = 0;
+    errors = maestroGetErrors(fd);
+    printf("Current errors are %x.\n", errors);
+    
+    maestroGoHome(fd);
+    abox_update_position(fd, servo_state);
+    
+    return 0;
+}
+
+// Rotates beam splitter left-right, from telescope point of view
+int abox_rotate_lr(int fd, servo_state_t* servo_state, int target)
+{
+    maestroSetTarget(fd, BOTTOM_RIGHT_SERVO, BOTTOM_RIGHT_SERVO_ZERO*4 - target);
+    maestroSetTarget(fd, BOTTOM_LEFT_SERVO, BOTTOM_LEFT_SERVO_ZERO*4 + target);
+    
+    abox_update_position(fd, servo_state);
+}
+
+// Rotates beam splitter up-down, from telescope point of view
+int abox_rotate_up(int fd, servo_state_t* servo_state, int target)
+{
+    maestroSetTarget(fd, TOP_CENTER_SERVO, TOP_CENTER_SERVO_ZERO*4 - target);
+    maestroSetTarget(fd, BOTTOM_RIGHT_SERVO, BOTTOM_RIGHT_SERVO_ZERO*4 + target);
+    maestroSetTarget(fd, BOTTOM_LEFT_SERVO, BOTTOM_LEFT_SERVO_ZERO*4 + target);
+    
+    abox_update_position(fd, servo_state);
+}
 
 int main()
 {
@@ -130,53 +173,29 @@ int main()
   tcsetattr(fd, TCSANOW, &options);
 #endif
 
-  int position = 0;
-  int errors = 0;
-  float fpoition = 0;
-
-  errors = maestroGetErrors(fd);
-  printf("Current errors are %x.\n", errors);
-
-  for (int i = 0; i < 3; i++)
-  {
-    position = maestroGetPosition(fd, i);
-    fpoition = (float)position/4;
-    printf("Current position of ch %d is %f (%d).\n", i, fpoition, position);
-  }
-
-  maestroGoHome(fd);
-
-  errors = maestroGetErrors(fd);
-  printf("Current errors are %x.\n", errors);
-
-  for (int i = 0; i < 3; i++)
-  {
-    position = maestroGetPosition(fd, i);
-    fpoition = (float)position/4;
-    printf("Current position of ch %d is %f (%d).\n", i, fpoition, position);
-  }
-
-
-/*
-  int target = 0;
-  printf("Setting target to %d (%d us).\n", target, target/4);
-  maestroSetTarget(fd, 0, target);
-
-  /*
-  for (int i = 0; i < 10; i++)
-  {
-    position = maestroGetPosition(fd, 0);
-    printf("Current position is %d.\n", position);
-
-    //int target = (position < 6000) ? 7000 : 5000;
-
-      int target = i;
-      printf("Setting target to %d (%d us).\n", target, target/4);
-      maestroSetTarget(fd, 0, target);
-  }
-  position = maestroGetPosition(fd, 0);
-  printf("Current position is %d.\n", position);
-  */
+    servo_state_t servo_state;
+    
+    abox_init(fd, &servo_state);
+    
+    sleep(1);
+    
+    abox_rotate_lr(fd, &servo_state, 1000);
+    
+    sleep(1);
+    
+    abox_rotate_lr(fd, &servo_state, -1000);
+    
+    sleep(1);
+    maestroGoHome(fd);
+    
+    sleep(1);
+    abox_rotate_up(fd, &servo_state, 1000);
+    
+    sleep(1);
+    abox_rotate_up(fd, &servo_state, -1000);
+    
+    sleep(1);
+    maestroGoHome(fd);
 
   close(fd);
   return 0;
