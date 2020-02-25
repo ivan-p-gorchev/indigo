@@ -1,3 +1,9 @@
+// Top view
+
+#define TOP_CENTER_SERVO    0x00      // Top center servo motor is deriven by Polulo channel 0x00
+#define BOTTOM_RIGHT_SERVO  0x01      // Bottom right servo motor is deriven by Polulo channel 0x01
+#define BOTTOM_LEFT_SERVO   0x02      // Bottom left servo motor is deriven by Polulo channel 0x02
+
 // Deffinition of serial commands, regarding Compact Protocol
 
 #define COMPACT_PROTOCOL (1)
