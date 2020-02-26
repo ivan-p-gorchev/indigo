@@ -126,7 +126,7 @@ int abox_init(int fd, servo_state_t* servo_state)
 // Rotates beam splitter left-right, from telescope point of view
 int abox_rotate_lr(int fd, servo_state_t* servo_state, int target)
 {
-    maestroSetTarget(fd, BOTTOM_RIGHT_SERVO, BOTTOM_RIGHT_SERVO_ZERO*4 - target);
+    maestroSetTarget(fd, BOTTOM_RIGHT_SERVO, BOTTOM_RIGHT_SERVO_ZERO*4 + target);
     maestroSetTarget(fd, BOTTOM_LEFT_SERVO, BOTTOM_LEFT_SERVO_ZERO*4 + target);
     
     abox_update_position(fd, servo_state);
@@ -137,7 +137,7 @@ int abox_rotate_up(int fd, servo_state_t* servo_state, int target)
 {
     maestroSetTarget(fd, TOP_CENTER_SERVO, TOP_CENTER_SERVO_ZERO*4 - target);
     maestroSetTarget(fd, BOTTOM_RIGHT_SERVO, BOTTOM_RIGHT_SERVO_ZERO*4 + target);
-    maestroSetTarget(fd, BOTTOM_LEFT_SERVO, BOTTOM_LEFT_SERVO_ZERO*4 + target);
+    maestroSetTarget(fd, BOTTOM_LEFT_SERVO, BOTTOM_LEFT_SERVO_ZERO*4 - target);
     
     abox_update_position(fd, servo_state);
 }
@@ -179,20 +179,20 @@ int main()
     
     sleep(1);
     
-    abox_rotate_lr(fd, &servo_state, 1000);
+    abox_rotate_lr(fd, &servo_state, 800);
     
     sleep(1);
     
-    abox_rotate_lr(fd, &servo_state, -1000);
+    abox_rotate_lr(fd, &servo_state, -800);
     
     sleep(1);
     maestroGoHome(fd);
     
     sleep(1);
-    abox_rotate_up(fd, &servo_state, 1000);
+    abox_rotate_up(fd, &servo_state, 800);
     
     sleep(1);
-    abox_rotate_up(fd, &servo_state, -1000);
+    abox_rotate_up(fd, &servo_state, -800);
     
     sleep(1);
     maestroGoHome(fd);
