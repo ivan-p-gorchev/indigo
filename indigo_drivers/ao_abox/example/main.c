@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "a-box_header.h"
+#include <unistd.h>
 
 #ifdef _WIN32
 #define O_NOCTTY 0
@@ -176,25 +177,48 @@ int main()
     servo_state_t servo_state;
     
     abox_init(fd, &servo_state);
+
+    int max = 600;
+    int step = 20;
     
-    sleep(1);
-    
-    abox_rotate_lr(fd, &servo_state, 800);
-    
-    sleep(1);
-    
-    abox_rotate_lr(fd, &servo_state, -800);
-    
-    sleep(1);
+
+    int ii = step;
+
+    while (ii<=max)
+    {
+        abox_rotate_lr(fd, &servo_state, ii);
+        ii += step;
+        usleep(100000);
+    }
+
+    while (ii>=-max)
+    {
+        abox_rotate_lr(fd, &servo_state, ii);
+        ii -= step;
+        usleep(100000);
+    }
+
     maestroGoHome(fd);
-    
     sleep(1);
-    abox_rotate_up(fd, &servo_state, 800);
-    
-    sleep(1);
-    abox_rotate_up(fd, &servo_state, -800);
-    
-    sleep(1);
+
+
+    ii = step;
+
+    while (ii<=max)
+    {
+        abox_rotate_up(fd, &servo_state, ii);
+        ii += step;
+        usleep(100000);
+    }
+
+    while (ii>=-max)
+    {
+        abox_rotate_up(fd, &servo_state, ii);
+        ii -= step;
+        usleep(100000);
+    }
+
+
     maestroGoHome(fd);
 
   close(fd);
